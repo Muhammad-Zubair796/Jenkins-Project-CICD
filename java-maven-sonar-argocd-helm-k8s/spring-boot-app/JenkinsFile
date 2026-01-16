@@ -12,6 +12,7 @@ pipeline {
         stage('Build and Test') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    // Running maven inside the container
                     sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
                 }
             }
@@ -56,23 +57,19 @@ pipeline {
                             git config user.email "adrainbialon@gmail.com"
                             git config user.name "Muhammad-Zubair796"
                             
-                            # 2. Force switch to main and pull latest to be safe
-                            git checkout -f main
-                            git pull origin main
-                            
-                            # 3. Update the image version
+                            # 2. Update ONLY the deployment.yml file using sed
                             sed -i "s|image: adrainbialon/my-spring-app:.*|image: adrainbialon/my-spring-app:${BUILD_NUMBER}|g" deployment.yml
                             
-                            # 4. Add ONLY the deployment.yml file (ignore the target folder)
+                            # 3. Add ONLY the manifest file to avoid permission issues with target folder
                             git add deployment.yml
                             
-                            # 5. Commit and Push
+                            # 4. Commit and Push directly to the main branch
                             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git main
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
                         '''
                     }
                 }
             }
         }
-    } // Closes Stages
-} // Closes Pipeline
+    }
+}
