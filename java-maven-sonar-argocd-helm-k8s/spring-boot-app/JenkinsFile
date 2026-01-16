@@ -16,8 +16,8 @@ pipeline {
         stage('Build and Test') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    // We run Maven inside a container manually
-                    sh 'docker run --rm -v ${WORKSPACE}:/root/project -w /root/project/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
+                    // We mount the whole workspace to /app and tell maven to look in the subfolder
+                    sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
                 }
             }
         }
@@ -28,8 +28,8 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-                        // We run Sonar inside a container manually
-                        sh 'docker run --rm -v ${WORKSPACE}:/root/project -w /root/project/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+                        // We run Sonar inside a container manually pointing to the correct subfolder
+                        sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
                     }
                 }
             }
