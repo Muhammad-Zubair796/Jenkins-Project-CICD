@@ -4,9 +4,7 @@ pipeline {
     stages {
         stage('Cleanup and Checkout') {
             steps {
-                // 1. Clean the old stuff
                 cleanWs()
-                // 2. Download the fresh code from GitHub
                 checkout scm
                 sh 'echo "Workspace cleaned and code checked out successfully."'
             }
@@ -14,7 +12,6 @@ pipeline {
         stage('Build and Test') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    // Running maven inside the container
                     sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
                 }
             }
@@ -55,17 +52,14 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
-                            # 1. Set identity
                             git config user.email "adrainbialon@gmail.com"
                             git config user.name "Muhammad-Zubair796"
                             
-                            # 2. Switch to the main branch properly
-                            git checkout main
+                            # Switch to main branch to avoid detached HEAD
+                            git checkout main || git checkout -b main
                             
-                            # 3. Update the image version in deployment.yml
                             sed -i "s|image: adrainbialon/my-spring-app:.*|image: adrainbialon/my-spring-app:${BUILD_NUMBER}|g" deployment.yml
                             
-                            # 4. Add, commit, and push using the token
                             git add deployment.yml
                             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git main
@@ -74,3 +68,5 @@ pipeline {
                 }
             }
         }
+    }
+}
