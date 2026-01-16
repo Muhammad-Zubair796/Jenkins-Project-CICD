@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image image 'adrainbialon/maven-java-17-agent:latest'
+      image 'adrainbialon/maven-java-17-agent:latest'
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
