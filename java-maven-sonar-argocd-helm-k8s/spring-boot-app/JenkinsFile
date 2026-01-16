@@ -2,15 +2,16 @@ pipeline {
   agent {
     docker {
       image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      args '--user root --entrypoint="" -v /var/run/docker.sock:/var/run/docker.sock'
+      // We are adding the path to the docker executable specifically
+      args '--user root --entrypoint="" -v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
+      alwaysPull true
     }
   }
   stages {
     stage('Cleanup Workspace') {
       steps {
-        // This clears the folder before we start to avoid "Permission Denied"
         cleanWs()
-        sh 'echo "Workspace cleaned and ready for a fresh start."'
+        sh 'echo "Workspace cleaned and starting fresh with Docker Agent"'
       }
     }
     stage('Checkout') {
@@ -32,6 +33,7 @@ pipeline {
       steps {
         dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
           withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+            // Using version 3.7.0.1746 to ensure it runs on the agent's Java version
             sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
           }
         }
