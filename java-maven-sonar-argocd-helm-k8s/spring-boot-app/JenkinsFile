@@ -1,22 +1,20 @@
 pipeline {
-    agent any // This uses the Ubuntu host directly to avoid the 'process never started' bug
+    agent any
 
     stages {
-        stage('Cleanup Workspace') {
+        stage('Cleanup and Checkout') {
             steps {
+                // 1. Clean the old stuff
                 cleanWs()
-                sh 'echo "Workspace cleaned and ready."'
-            }
-        }
-        stage('Checkout') {
-            steps {
-                sh 'echo "Building version ${BUILD_NUMBER}"'
+                // 2. Download the fresh code from GitHub
+                checkout scm
+                sh 'echo "Workspace cleaned and code checked out successfully."'
             }
         }
         stage('Build and Test') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    // We mount the whole workspace to /app and tell maven to look in the subfolder
+                    // Running maven inside the container
                     sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
                 }
             }
@@ -28,7 +26,6 @@ pipeline {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-                        // We run Sonar inside a container manually pointing to the correct subfolder
                         sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
                     }
                 }
