@@ -4,16 +4,20 @@ pipeline {
     stages {
         stage('Cleanup and Checkout') {
             steps {
+                // This cleans the workspace of any old root files
                 cleanWs()
                 checkout scm
-                sh 'echo "Workspace cleaned and code checked out successfully."'
+                sh 'echo "Code checked out successfully."'
             }
         }
         stage('Build and Test') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    // Running maven inside the container
+                    // We run Maven inside a container
                     sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn clean package'
+                    
+                    // CRITICAL: Change ownership of created files back to jenkins user immediately
+                    sh 'sudo chown -R jenkins:jenkins ${WORKSPACE}'
                 }
             }
         }
@@ -25,6 +29,7 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
                     withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
                         sh 'docker run --rm -v ${WORKSPACE}:/app -w /app/java-maven-sonar-argocd-helm-k8s/spring-boot-app maven:3.9.6-eclipse-temurin-17 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:3.7.0.1746:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+                        sh 'sudo chown -R jenkins:jenkins ${WORKSPACE}'
                     }
                 }
             }
@@ -53,18 +58,11 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
-                            # 1. Set identity
                             git config user.email "adrainbialon@gmail.com"
                             git config user.name "Muhammad-Zubair796"
-                            
-                            # 2. Update ONLY the deployment.yml file using sed
                             sed -i "s|image: adrainbialon/my-spring-app:.*|image: adrainbialon/my-spring-app:${BUILD_NUMBER}|g" deployment.yml
-                            
-                            # 3. Add ONLY the manifest file to avoid permission issues with target folder
                             git add deployment.yml
-                            
-                            # 4. Commit and Push directly to the main branch
-                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes"
                             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
                         '''
                     }
