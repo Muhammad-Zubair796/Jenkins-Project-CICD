@@ -52,21 +52,27 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                         sh '''
+                            # 1. Set identity
                             git config user.email "adrainbialon@gmail.com"
                             git config user.name "Muhammad-Zubair796"
                             
-                            # Switch to main branch to avoid detached HEAD
-                            git checkout main || git checkout -b main
+                            # 2. Force switch to main and pull latest to be safe
+                            git checkout -f main
+                            git pull origin main
                             
+                            # 3. Update the image version
                             sed -i "s|image: adrainbialon/my-spring-app:.*|image: adrainbialon/my-spring-app:${BUILD_NUMBER}|g" deployment.yml
                             
+                            # 4. Add ONLY the deployment.yml file (ignore the target folder)
                             git add deployment.yml
-                            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                            
+                            # 5. Commit and Push
+                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
                             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git main
                         '''
                     }
                 }
             }
         }
-    }
-}
+    } // Closes Stages
+} // Closes Pipeline
